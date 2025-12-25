@@ -303,10 +303,8 @@ def health_check():
 
 
 # For Vercel serverless deployment
-def handler(request):
-    """Serverless function handler for Vercel"""
-    with app.request_context(request.environ):
-        return app.full_dispatch_request()
+# Vercel looks for 'app' in api/index.py by default
+# No special handler needed for Flask app
 
 
 # For local development
