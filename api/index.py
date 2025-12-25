@@ -3,15 +3,464 @@ from flask_cors import CORS
 import sqlite3
 import re
 import os
-from _lessons import get_all_lessons, get_lesson_by_id
 
 # Get the parent directory (project root)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
 CORS(app)  # Enable CORS for frontend communication
 
+# --- LESSON DATA ---
+LESSONS = [
+    {
+        "id": 1,
+        "title": "Introduction to SQL",
+        "category": "KANTO BASICS",
+        "content": {
+            "description": "Understand what SQL is and why we use it.",
+            "theory": """SQL (Structured Query Language) is the standard language for dealing with Relational Databases.
 
+Think of it as a way to talk to data. You can ask questions (queries), add new data, or change existing data.
+
+**Key Concepts:**
+- **Data** is stored in **Tables**
+- Tables have **Rows** (records) and **Columns** (fields)
+- We use **Statements** to interact with these tables""",
+            "examples": [
+                {
+                    "title": "Your Challenge",
+                    "description": "Run a SELECT * FROM trainers query to see the data.",
+                    "query": "SELECT * FROM trainers;",
+                    "explanation": "This query retrieves all columns (*) from the trainers table."
+                }
+            ]
+        }
+    },
+    {
+        "id": 2,
+        "title": "Relational Databases",
+        "category": "KANTO BASICS",
+        "content": {
+            "description": "Learn how data is organized in tables with relationships.",
+            "theory": """A Relational Database organizes data into tables that can be linked—or related—based on data common to each.
+
+**Key Features:**
+- **Tables**: Store data in rows and columns
+- **Relationships**: Tables can be connected through common fields
+- **Primary Keys**: Unique identifiers for each row
+- **Foreign Keys**: References to primary keys in other tables
+
+**Example:**
+A `trainers` table might have a `trainer_id` as primary key.
+A `pokemon` table might reference `trainer_id` as a foreign key to link Pokemon to trainers.""",
+            "examples": [
+                {
+                    "title": "View Related Data",
+                    "description": "See how trainers and pokemon tables are related.",
+                    "query": "SELECT trainers.name, pokemon.name AS pokemon, pokemon.type\nFROM trainers\nJOIN pokemon ON trainers.id = pokemon.trainer_id;",
+                    "explanation": "This joins two tables to show which trainer has which Pokemon."
+                }
+            ]
+        }
+    },
+    {
+        "id": 3,
+        "title": "SQL Statements",
+        "category": "KANTO BASICS",
+        "content": {
+            "description": "Overview of the main SQL statement types.",
+            "theory": """SQL statements are commands we use to interact with databases. They fall into several categories:
+
+**Data Manipulation Language (DML):**
+- `SELECT` - Retrieve data
+- `INSERT` - Add new data
+- `UPDATE` - Modify existing data
+- `DELETE` - Remove data
+
+**Data Definition Language (DDL):**
+- `CREATE` - Create new tables or databases
+- `ALTER` - Modify table structure
+- `DROP` - Delete tables or databases
+
+**Data Control Language (DCL):**
+- `GRANT` - Give permissions
+- `REVOKE` - Remove permissions""",
+            "examples": [
+                {
+                    "title": "Basic SELECT Statement",
+                    "description": "The most common SQL statement - retrieving data.",
+                    "query": "SELECT name, hometown FROM trainers;",
+                    "explanation": "Retrieves only the name and hometown columns from the trainers table."
+                }
+            ]
+        }
+    },
+    {
+        "id": 4,
+        "title": "CREATE TABLE",
+        "category": "GYM CHALLENGES",
+        "content": {
+            "description": "Learn how to create new tables in your database.",
+            "theory": """The CREATE TABLE statement creates a new table in the database.
+
+**Syntax:**
+```sql
+CREATE TABLE table_name (
+    column1 datatype,
+    column2 datatype,
+    column3 datatype
+);
+```
+
+**Common Data Types:**
+- `INTEGER` - Whole numbers
+- `TEXT` - String/text data
+- `REAL` - Decimal numbers
+- `BLOB` - Binary data
+- `NULL` - Empty value""",
+            "examples": [
+                {
+                    "title": "Create a Moves Table",
+                    "description": "Create a new table to store Pokemon move information.",
+                    "query": "CREATE TABLE moves (\n    id INTEGER,\n    name TEXT,\n    type TEXT,\n    power INTEGER\n);",
+                    "explanation": "Creates a moves table with 4 columns: id, name, type, and power."
+                },
+                {
+                    "title": "Verify Table Creation",
+                    "description": "Check that the table was created (it will be empty).",
+                    "query": "SELECT * FROM moves;",
+                    "explanation": "This will show the table structure but no data yet."
+                }
+            ]
+        }
+    },
+    {
+        "id": 5,
+        "title": "INSERT INTO",
+        "category": "GYM CHALLENGES",
+        "content": {
+            "description": "Add new data to your tables.",
+            "theory": """The INSERT INTO statement adds new rows to a table.
+
+**Syntax for single row:**
+```sql
+INSERT INTO table_name (column1, column2)
+VALUES (value1, value2);
+```
+
+**Syntax for multiple rows:**
+```sql
+INSERT INTO table_name (column1, column2)
+VALUES 
+    (value1, value2),
+    (value3, value4);
+```
+
+**Note:** If you insert values for all columns in order, you can omit the column names.""",
+            "examples": [
+                {
+                    "title": "Insert a Single Trainer",
+                    "description": "Add one new trainer to the trainers table.",
+                    "query": "INSERT INTO trainers (id, name, hometown, badges)\nVALUES (5, 'Red', 'Pallet Town', 16);",
+                    "explanation": "Adds a new trainer with id=5 to the trainers table."
+                },
+                {
+                    "title": "Insert Multiple Pokemon",
+                    "description": "Add multiple Pokemon at once.",
+                    "query": "INSERT INTO pokemon (id, name, type, trainer_id, level, cp, sprite_url)\nVALUES \n    (150, 'Mewtwo', 'Psychic', 5, 70, 999, 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png'),\n    (151, 'Mew', 'Psychic', 5, 50, 800, 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png');",
+                    "explanation": "Adds two new Pokemon in a single statement."
+                },
+                {
+                    "title": "View All Trainers",
+                    "description": "See all trainers including the ones we just added.",
+                    "query": "SELECT * FROM trainers;",
+                    "explanation": "Displays all trainers in the table."
+                }
+            ]
+        }
+    },
+    {
+        "id": 6,
+        "title": "The SELECT Statement",
+        "category": "GYM CHALLENGES",
+        "content": {
+            "description": "Query and retrieve data from your database.",
+            "theory": """SELECT is the most used SQL statement. It retrieves data from one or more tables.
+
+**Basic Syntax:**
+```sql
+SELECT column1, column2 FROM table_name;
+```
+
+**Select all columns:**
+```sql
+SELECT * FROM table_name;
+```
+
+**Filtering with WHERE:**
+```sql
+SELECT * FROM table_name WHERE condition;
+```
+
+**Sorting with ORDER BY:**
+```sql
+SELECT * FROM table_name ORDER BY column ASC/DESC;
+```
+
+**Limiting results:**
+```sql
+SELECT * FROM table_name LIMIT number;
+```""",
+            "examples": [
+                {
+                    "title": "Select Specific Columns",
+                    "description": "Get only name and type from pokemon.",
+                    "query": "SELECT name, type FROM pokemon;",
+                    "explanation": "Returns only the name and type columns."
+                },
+                {
+                    "title": "Filter with WHERE",
+                    "description": "Find Electric type Pokemon.",
+                    "query": "SELECT * FROM pokemon WHERE type = 'Electric';",
+                    "explanation": "Returns only Pokemon whose type is Electric."
+                },
+                {
+                    "title": "Sort Results",
+                    "description": "Get Pokemon ordered by level (highest first).",
+                    "query": "SELECT name, level FROM pokemon ORDER BY level DESC;",
+                    "explanation": "DESC means descending order (largest to smallest)."
+                },
+                {
+                    "title": "Limit Results",
+                    "description": "Get only the first 3 Pokemon.",
+                    "query": "SELECT * FROM pokemon LIMIT 3;",
+                    "explanation": "LIMIT restricts the number of rows returned."
+                }
+            ]
+        }
+    },
+    {
+        "id": 7,
+        "title": "ALTER TABLE",
+        "category": "EVOLUTION TECHNIQUES",
+        "content": {
+            "description": "Modify the structure of existing tables.",
+            "theory": """ALTER TABLE modifies an existing table's structure.
+
+**Add a new column:**
+```sql
+ALTER TABLE table_name 
+ADD column_name datatype;
+```
+
+**Rename a table:**
+```sql
+ALTER TABLE old_name 
+RENAME TO new_name;
+```
+
+**Note:** SQLite has limited ALTER TABLE support compared to other databases. You can add columns and rename tables, but dropping columns requires recreating the table.""",
+            "examples": [
+                {
+                    "title": "Add a Column",
+                    "description": "Add a 'nickname' column to the pokemon table.",
+                    "query": "ALTER TABLE pokemon ADD nickname TEXT;",
+                    "explanation": "Adds a new nickname column. Existing rows will have NULL for this column."
+                },
+                {
+                    "title": "View Updated Table",
+                    "description": "See the table with the new column.",
+                    "query": "SELECT * FROM pokemon;",
+                    "explanation": "The nickname column now exists but is empty (NULL) for all Pokemon."
+                }
+            ]
+        }
+    },
+    {
+        "id": 8,
+        "title": "UPDATE",
+        "category": "EVOLUTION TECHNIQUES",
+        "content": {
+            "description": "Modify existing data in your tables.",
+            "theory": """UPDATE changes existing data in a table.
+
+**Syntax:**
+```sql
+UPDATE table_name
+SET column1 = value1, column2 = value2
+WHERE condition;
+```
+
+**⚠️ WARNING:** Always use a WHERE clause! Without it, ALL rows will be updated.
+
+**Examples:**
+- Update one row: `WHERE id = 1`
+- Update multiple rows: `WHERE age > 30`
+- Update all rows: Omit WHERE (use carefully!)""",
+            "examples": [
+                {
+                    "title": "Update a Single Pokemon",
+                    "description": "Level up Pikachu.",
+                    "query": "UPDATE pokemon\nSET level = 30, cp = 450\nWHERE name = 'Pikachu';",
+                    "explanation": "Updates only the row where name is 'Pikachu'."
+                },
+                {
+                    "title": "Update Multiple Columns",
+                    "description": "Update both level and CP for a Pokemon.",
+                    "query": "UPDATE pokemon\nSET level = 35, cp = 600\nWHERE name = 'Gyarados';",
+                    "explanation": "You can update multiple columns in one statement."
+                },
+                {
+                    "title": "View Updated Data",
+                    "description": "See the changes we made.",
+                    "query": "SELECT * FROM pokemon;",
+                    "explanation": "Displays all Pokemon with updated information."
+                }
+            ]
+        }
+    },
+    {
+        "id": 9,
+        "title": "DELETE",
+        "category": "EVOLUTION TECHNIQUES",
+        "content": {
+            "description": "Remove data from your tables.",
+            "theory": """DELETE removes rows from a table.
+
+**Syntax:**
+```sql
+DELETE FROM table_name
+WHERE condition;
+```
+
+**⚠️ WARNING:** Always use a WHERE clause! Without it, ALL rows will be deleted.
+
+**Examples:**
+- Delete one row: `WHERE id = 1`
+- Delete multiple rows: `WHERE age < 18`
+- Delete all rows: `DELETE FROM table_name` (use carefully!)
+
+**Note:** DELETE removes the data but keeps the table structure. Use DROP TABLE to remove the entire table.""",
+            "examples": [
+                {
+                    "title": "Delete a Single Pokemon",
+                    "description": "Remove the Pokemon with id = 7.",
+                    "query": "DELETE FROM pokemon WHERE id = 7;",
+                    "explanation": "Removes only the row where id equals 7 (Squirtle)."
+                },
+                {
+                    "title": "Delete Multiple Pokemon",
+                    "description": "Remove all Pokemon below level 15.",
+                    "query": "DELETE FROM pokemon WHERE level < 15;",
+                    "explanation": "Removes all rows matching the condition."
+                },
+                {
+                    "title": "View Remaining Pokemon",
+                    "description": "See what's left after deletions.",
+                    "query": "SELECT * FROM pokemon;",
+                    "explanation": "Shows the remaining Pokemon in the table."
+                }
+            ]
+        }
+    },
+    {
+        "id": 10,
+        "title": "SQL Constraints",
+        "category": "MASTERBALL SKILLS",
+        "content": {
+            "description": "Enforce rules on your data to maintain integrity.",
+            "theory": """Constraints are rules enforced on data columns to ensure accuracy and reliability.
+
+**Common Constraints:**
+
+**PRIMARY KEY** - Uniquely identifies each row
+```sql
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT
+);
+```
+
+**NOT NULL** - Column cannot be empty
+```sql
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+);
+```
+
+**UNIQUE** - All values must be different
+```sql
+CREATE TABLE users (
+    email TEXT UNIQUE
+);
+```
+
+**DEFAULT** - Sets a default value
+```sql
+CREATE TABLE users (
+    status TEXT DEFAULT 'active'
+);
+```
+
+**CHECK** - Ensures values meet a condition
+```sql
+CREATE TABLE users (
+    age INTEGER CHECK(age >= 18)
+);
+```
+
+**FOREIGN KEY** - Links to another table
+```sql
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```""",
+            "examples": [
+                {
+                    "title": "Create Table with Constraints",
+                    "description": "Create a table with multiple constraints.",
+                    "query": "CREATE TABLE caught_pokemon (\n    id INTEGER PRIMARY KEY,\n    species TEXT NOT NULL,\n    nickname TEXT UNIQUE,\n    level INTEGER CHECK(level >= 1 AND level <= 100),\n    status TEXT DEFAULT 'Active'\n);",
+                    "explanation": "This table has PRIMARY KEY, NOT NULL, UNIQUE, CHECK, and DEFAULT constraints."
+                },
+                {
+                    "title": "Insert Valid Data",
+                    "description": "Add a Pokemon that meets all constraints.",
+                    "query": "INSERT INTO caught_pokemon (id, species, nickname, level)\nVALUES (1, 'Pikachu', 'Sparky', 25);",
+                    "explanation": "This insert succeeds because it meets all constraints."
+                },
+                {
+                    "title": "View Caught Pokemon",
+                    "description": "See the Pokemon data.",
+                    "query": "SELECT * FROM caught_pokemon;",
+                    "explanation": "Notice the status column has 'Active' as default value."
+                }
+            ]
+        }
+    }
+]
+
+def get_all_lessons():
+    """Return metadata for all lessons"""
+    return [
+        {
+            "id": lesson["id"],
+            "title": lesson["title"],
+            "category": lesson["category"]
+        }
+        for lesson in LESSONS
+    ]
+
+def get_lesson_by_id(lesson_id):
+    """Return full lesson content by ID"""
+    for lesson in LESSONS:
+        if lesson["id"] == lesson_id:
+            return lesson
+    return None
+
+# --- DATABASE SETUP ---
 def init_sample_database():
     """Initialize an in-memory SQLite database with Pokemon-themed data"""
     conn = sqlite3.connect(':memory:')
@@ -116,195 +565,95 @@ def init_sample_database():
     conn.commit()
     return conn
 
-
+# --- SECURITY ---
 def is_safe_query(query):
-    """
-    Basic SQL injection prevention and dangerous operation blocking.
-    Only allows SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER statements.
-    Blocks potentially dangerous operations.
-    """
-    # Convert to uppercase for checking
     query_upper = query.upper().strip()
-    
-    # List of allowed statement types
     allowed_statements = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER']
-    
-    # Check if query starts with an allowed statement
     starts_with_allowed = any(query_upper.startswith(stmt) for stmt in allowed_statements)
-    
     if not starts_with_allowed:
         return False, "Only SELECT, INSERT, UPDATE, DELETE, CREATE, and ALTER statements are allowed."
-    
-    # List of dangerous keywords/patterns to block
     dangerous_patterns = [
-        r'\bDROP\s+DATABASE\b',
-        r'\bDROP\s+SCHEMA\b',
-        r'\bEXEC\b',
-        r'\bEXECUTE\b',
-        r'\bATTACH\b',
-        r'\bDETACH\b',
-        r'\bPRAGMA\b',
-        r'--',  # SQL comments can be used for injection
-        r'/\*',  # Block comments
-        r'\bLOAD_FILE\b',
-        r'\bINTO\s+OUTFILE\b',
-        r'\bINTO\s+DUMPFILE\b',
+        r'\bDROP\s+DATABASE\b', r'\bDROP\s+SCHEMA\b', r'\bEXEC\b', r'\bEXECUTE\b',
+        r'\bATTACH\b', r'\bDETACH\b', r'\bPRAGMA\b', r'--', r'/\*',
+        r'\bLOAD_FILE\b', r'\bINTO\s+OUTFILE\b', r'\bINTO\s+DUMPFILE\b',
     ]
-    
-    # Check for dangerous patterns
     for pattern in dangerous_patterns:
         if re.search(pattern, query_upper):
-            return False, f"Dangerous operation detected. This operation is not allowed for security reasons."
-    
+            return False, "Dangerous operation detected."
     return True, "Query is safe"
 
+# --- ROUTES ---
+@app.route('/')
+def serve_index():
+    return send_from_directory(BASE_DIR, 'index.html')
 
-# Static files are handled by Vercel directly from the root
-# The API only handles /api endpoints
-
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory(BASE_DIR, path)
 
 @app.route('/api/execute', methods=['POST'])
 def execute_query():
-    """Execute SQL query/queries in a sandboxed environment (supports multiple statements)"""
     try:
         data = request.get_json()
         query = data.get('query', '').strip()
-        
         if not query:
             return jsonify({'error': 'No query provided'}), 400
-        
-        # Parse multiple statements by splitting on semicolons
-        # Split by semicolon and filter out empty statements
         raw_statements = [stmt.strip() for stmt in query.split(';')]
-        statements = [stmt for stmt in raw_statements if stmt]  # Remove empty strings
-        
-        # Check statement limit
+        statements = [stmt for stmt in raw_statements if stmt]
         if len(statements) > 15:
-            return jsonify({'error': 'Too many statements. Maximum 15 statements allowed per execution.'}), 400
-        
-        if len(statements) == 0:
-            return jsonify({'error': 'No valid SQL statements found'}), 400
-        
-        # Validate each statement for safety
+            return jsonify({'error': 'Too many statements. Max 15.'}), 400
         for i, stmt in enumerate(statements):
             is_safe, message = is_safe_query(stmt)
             if not is_safe:
-                return jsonify({
-                    'error': f'Statement {i+1} is not safe: {message}',
-                    'statement': stmt
-                }), 400
-        
-        # Initialize fresh database for each request (stateless)
+                return jsonify({'error': f'Statement {i+1} is not safe: {message}'}), 400
         conn = init_sample_database()
         cursor = conn.cursor()
-        
         results = []
         execution_stopped = False
-        
-        # Execute each statement sequentially
         for i, stmt in enumerate(statements):
             try:
-                # Execute the statement
                 cursor.execute(stmt)
-                
-                # Check if it's a SELECT query (returns data)
                 if stmt.upper().strip().startswith('SELECT'):
                     rows = cursor.fetchall()
                     columns = [description[0] for description in cursor.description] if cursor.description else []
-                    
-                    # Convert rows to list of dictionaries
-                    data_results = []
-                    for row in rows:
-                        data_results.append(dict(zip(columns, row)))
-                    
+                    data_results = [dict(zip(columns, row)) for row in rows]
                     results.append({
-                        'statementNumber': i + 1,
-                        'statement': stmt,
-                        'success': True,
-                        'columns': columns,
-                        'data': data_results,
-                        'rowCount': len(data_results)
+                        'statementNumber': i + 1, 'statement': stmt, 'success': True,
+                        'columns': columns, 'data': data_results, 'rowCount': len(data_results)
                     })
                 else:
-                    # For INSERT, UPDATE, DELETE, CREATE, ALTER
                     conn.commit()
-                    affected_rows = cursor.rowcount
-                    
                     results.append({
-                        'statementNumber': i + 1,
-                        'statement': stmt,
-                        'success': True,
-                        'message': f'Query executed successfully. Rows affected: {affected_rows}',
-                        'rowCount': affected_rows
+                        'statementNumber': i + 1, 'statement': stmt, 'success': True,
+                        'message': 'Success', 'rowCount': cursor.rowcount
                     })
-                    
             except sqlite3.Error as e:
-                # Statement failed - add error result and stop execution
-                results.append({
-                    'statementNumber': i + 1,
-                    'statement': stmt,
-                    'success': False,
-                    'error': f'SQL Error: {str(e)}'
-                })
+                results.append({'statementNumber': i + 1, 'statement': stmt, 'success': False, 'error': str(e)})
                 execution_stopped = True
-                break  # Stop executing remaining statements
-        
+                break
         conn.close()
-        
-        # Return results for all executed statements
         return jsonify({
-            'success': not execution_stopped,  # Overall success if no errors
-            'multiStatement': len(statements) > 1,
-            'totalStatements': len(statements),
-            'executedStatements': len(results),
-            'stopped': execution_stopped,
-            'results': results
+            'success': not execution_stopped, 'multiStatement': len(statements) > 1,
+            'totalStatements': len(statements), 'executedStatements': len(results),
+            'stopped': execution_stopped, 'results': results
         })
-            
     except Exception as e:
-        return jsonify({'error': f'Server Error: {str(e)}'}), 500
-
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/lessons', methods=['GET'])
-def get_lessons():
-    """Get all lesson metadata"""
-    try:
-        lessons = get_all_lessons()
-        return jsonify({'success': True, 'lessons': lessons})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
+def get_lessons_api():
+    return jsonify({'success': True, 'lessons': get_all_lessons()})
 
 @app.route('/api/lessons/<int:lesson_id>', methods=['GET'])
-def get_lesson(lesson_id):
-    """Get specific lesson content"""
-    try:
-        lesson = get_lesson_by_id(lesson_id)
-        if lesson:
-            return jsonify({'success': True, 'lesson': lesson})
-        else:
-            return jsonify({'error': 'Lesson not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
+def get_lesson_api(lesson_id):
+    lesson = get_lesson_by_id(lesson_id)
+    if lesson:
+        return jsonify({'success': True, 'lesson': lesson})
+    return jsonify({'error': 'Lesson not found'}), 404
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
-    return jsonify({'status': 'healthy', 'message': 'SQL Learning API is running'})
+    return jsonify({'status': 'healthy'})
 
-
-# For Vercel serverless deployment
-# Vercel looks for 'app' in api/index.py by default
-# No special handler needed for Flask app
-
-
-# For local development
 if __name__ == '__main__':
-    print("🚀 SQL Learning API is running on http://localhost:5000")
-    print("📚 Available endpoints:")
-    print("   - POST /api/execute - Execute SQL queries")
-    print("   - GET  /api/lessons - Get all lessons")
-    print("   - GET  /api/lessons/<id> - Get specific lesson")
-    print("   - GET  /api/health - Health check")
     app.run(debug=True, host='0.0.0.0', port=5000)
