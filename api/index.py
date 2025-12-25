@@ -3,12 +3,12 @@ from flask_cors import CORS
 import sqlite3
 import re
 import os
-from lessons import get_all_lessons, get_lesson_by_id
+from _lessons import get_all_lessons, get_lesson_by_id
 
 # Get the parent directory (project root)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
+app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
 
 
@@ -159,16 +159,8 @@ def is_safe_query(query):
     return True, "Query is safe"
 
 
-@app.route('/')
-def serve_index():
-    """Serve the main index.html file"""
-    return send_from_directory(BASE_DIR, 'index.html')
-
-
-@app.route('/<path:path>')
-def serve_static(path):
-    """Serve static files (CSS, JS, etc.)"""
-    return send_from_directory(BASE_DIR, path)
+# Static files are handled by Vercel directly from the root
+# The API only handles /api endpoints
 
 
 @app.route('/api/execute', methods=['POST'])
